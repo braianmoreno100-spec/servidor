@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import socketio
 from .database import engine, Base
-from .routers import auth, ordenes, produccion
+from .routers import auth, ordenes, produccion, excel_export
 
 Base.metadata.create_all(bind=engine)
 
@@ -24,6 +24,7 @@ app.add_middleware(
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(ordenes.router, prefix="/ordenes", tags=["ordenes"])
 app.include_router(produccion.router, prefix="/produccion", tags=["produccion"])
+app.include_router(excel_export.router, prefix="/reportes", tags=["reportes"])
 
 socket_app = socketio.ASGIApp(sio, app)
 
