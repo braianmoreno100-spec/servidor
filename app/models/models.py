@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, ForeignKey, Text
+from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from ..database import Base
@@ -100,3 +100,22 @@ class Relevo(Base):
     hora_inicio = Column(String)
     hora_fin = Column(String, nullable=True)
     turno = relationship("Turno", back_populates="relevos")
+
+# ── CATÁLOGOS ─────────────────────────────────────────────────────────────────
+
+class CausaParada(Base):
+    __tablename__ = "causas_parada"
+    __table_args__ = {'extend_existing': True}
+    id = Column(Integer, primary_key=True, index=True)
+    codigo = Column(Integer, nullable=False)
+    descripcion = Column(String, nullable=False)
+    programada = Column(Boolean, default=False)
+    tipo_maquina = Column(String, nullable=False, default='linea')
+    activa = Column(Boolean, default=True)
+
+class TiposDesperdicio(Base):
+    __tablename__ = "tipos_desperdicio"
+    id = Column(Integer, primary_key=True, index=True)
+    codigo = Column(Integer, unique=True, nullable=False)
+    descripcion = Column(String, nullable=False)
+    activa = Column(Boolean, default=True)

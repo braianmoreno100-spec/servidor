@@ -7,5 +7,7 @@ from .models import (
     RegistroProduccion,
     Parada,
     Desperdicio,
-    Relevo
+    Relevo,
+    CausaParada,
+    TiposDesperdicio
 )
