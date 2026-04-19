@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from pydantic import BaseModel
-
+from app.models import CausaParada, TiposDesperdicio, Producto
 from ..database import get_db
 from ..models import CausaParada, TiposDesperdicio
 
@@ -144,3 +144,61 @@ def actualizar_tipo_desperdicio(tipo_id: int, data: TiposDesperdicioUpdate, db: 
     db.commit()
     db.refresh(tipo)
     return tipo
+
+from app.models import Producto
+
+# GET listar productos
+@router.get("/productos")
+def listar_productos(db: Session = Depends(get_db)):
+    return db.query(Producto).all()
+
+# PUT actualizar producto
+@router.put("/productos/{producto_id}")
+def actualizar_producto(producto_id: int, datos: dict, db: Session = Depends(get_db)):
+    prod = db.query(Producto).filter(Producto.id == producto_id).first()
+    if not prod:
+        raise HTTPException(status_code=404, detail="Producto no encontrado")
+    for k, v in datos.items():
+        setattr(prod, k, v)
+    db.commit()
+    db.refresh(prod)
+    return prod
+
+    # POST crear producto
+@router.post("/productos")
+def crear_producto(datos: dict, db: Session = Depends(get_db)):
+    prod = Producto(**datos)
+    db.add(prod)
+    db.commit()
+    db.refresh(prod)
+    return prod
+
+# DELETE producto
+@router.delete("/productos/{producto_id}")
+def eliminar_producto(producto_id: int, db: Session = Depends(get_db)):
+    prod = db.query(Producto).filter(Producto.id == producto_id).first()
+    if not prod:
+        raise HTTPException(status_code=404, detail="No encontrado")
+    db.delete(prod)
+    db.commit()
+    return {"ok": True}
+
+# DELETE causa parada
+@router.delete("/causas-parada/{causa_id}")
+def eliminar_causa(causa_id: int, db: Session = Depends(get_db)):
+    causa = db.query(CausaParada).filter(CausaParada.id == causa_id).first()
+    if not causa:
+        raise HTTPException(status_code=404, detail="No encontrado")
+    db.delete(causa)
+    db.commit()
+    return {"ok": True}
+
+# DELETE tipo desperdicio
+@router.delete("/tipos-desperdicio/{tipo_id}")
+def eliminar_desperdicio(tipo_id: int, db: Session = Depends(get_db)):
+    tipo = db.query(TiposDesperdicio).filter(TiposDesperdicio.id == tipo_id).first()
+    if not tipo:
+        raise HTTPException(status_code=404, detail="No encontrado")
+    db.delete(tipo)
+    db.commit()
+    return {"ok": True}

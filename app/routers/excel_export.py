@@ -607,4 +607,86 @@ def reporte_por_fechas(
     filename = f"reporte_{fecha_inicio}_{fecha_fin}.xlsx"
     return _response_excel(output, filename)
 
-    
+@router.get("/empleados-mes")
+def reporte_empleados_mes(
+    mes: int,
+    anio: int,
+    db: Session = Depends(get_db)
+):
+    from app.models.models import Turno, RegistroProduccion, Parada, Orden
+    from datetime import datetime, date
+    import calendar
+
+    primer_dia = date(anio, mes, 1)
+    ultimo_dia = date(anio, mes, calendar.monthrange(anio, mes)[1])
+
+    turnos = db.query(Turno).filter(
+        Turno.fecha >= str(primer_dia),
+        Turno.fecha <= str(ultimo_dia),
+        Turno.hora_fin != None
+    ).all()
+
+    empleados = {}
+
+    for t in turnos:
+        ced = t.cedula_empleado
+        orden = db.query(Orden).filter(Orden.id == t.orden_id).first()
+        if not orden:
+            continue
+
+        try:
+            fmt = "%H:%M"
+            h_inicio = datetime.strptime(t.hora_inicio[:5], fmt)
+            h_fin = datetime.strptime(t.hora_fin[:5], fmt)
+            tiempo_real = (h_fin - h_inicio).seconds / 3600
+        except:
+            tiempo_real = 0
+
+        tiempo_programado = float(orden.ciclos or 12)
+        registros = db.query(RegistroProduccion).filter(RegistroProduccion.turno_id == t.id).all()
+        contador = sum(r.cantidad for r in registros)
+        paradas = db.query(Parada).filter(Parada.turno_id == t.id).all()
+        min_np = sum(p.minutos for p in paradas if not p.programada)
+
+        tiempo_disponible = tiempo_real - (min_np / 60)
+        disponibilidad = (tiempo_disponible / tiempo_programado) if tiempo_programado > 0 else 0
+
+        ciclo = float(orden.ciclos or 0)
+        cavidades = int(orden.cavidades or 1)
+        prod_planeada = (tiempo_programado * 3600 / ciclo * cavidades) if ciclo > 0 else 0
+        rendimiento = (contador / prod_planeada) if prod_planeada > 0 else 0
+        oee = disponibilidad * rendimiento * 100
+
+        if ced not in empleados:
+            empleados[ced] = {
+                "cedula": ced,
+                "nombre": t.nombre_empleado,
+                "turnos": 0,
+                "oee_sum": 0.0,
+                "disp_sum": 0.0,
+                "rend_sum": 0.0,
+                "total_produccion": 0,
+            }
+
+        empleados[ced]["turnos"] += 1
+        empleados[ced]["oee_sum"] += oee
+        empleados[ced]["disp_sum"] += disponibilidad * 100
+        empleados[ced]["rend_sum"] += rendimiento * 100
+        empleados[ced]["total_produccion"] += contador
+
+    resultado = []
+    for emp in empleados.values():
+        n = emp["turnos"]
+        oee_prom = emp["oee_sum"] / n if n > 0 else 0
+        resultado.append({
+            "cedula": emp["cedula"],
+            "nombre": emp["nombre"],
+            "turnos": n,
+            "oee_promedio": round(oee_prom, 2),
+            "disponibilidad_promedio": round(emp["disp_sum"] / n, 2) if n > 0 else 0,
+            "rendimiento_promedio": round(emp["rend_sum"] / n, 2) if n > 0 else 0,
+            "total_produccion": emp["total_produccion"],
+            "bono": oee_prom >= 94.0,
+        })
+
+    return sorted(resultado, key=lambda x: x["oee_promedio"], reverse=True)
