@@ -138,7 +138,68 @@ CAUSAS_LINEA = [
     (42, 'AJUSTE MECANICO DE PROCESO',         0, 'linea'),
 ]
 
+# ─────────────────────────────────────────────────────────────────────────────
+# ACONDICIONAMIENTO 2025  (códigos tomados del Excel Celta)
+# Códigos 1-42 → NO programadas (programada=1 en la BD significa falla/no prog)
+# Códigos 43-50 → Programadas
+# ─────────────────────────────────────────────────────────────────────────────
+CAUSAS_ACONDICIONAMIENTO = [
+    # ── No programadas (fallas) ──────────────────────────────────
+    (1,  'FALLA PLANTA ELECTRICA',                      1, 'acondicionamiento'),
+    (2,  'FALLO EN TIJERAS',                            1, 'acondicionamiento'),
+    (3,  'FALLA AGARRE ELASTICO',                       1, 'acondicionamiento'),
+    (4,  'FALLA DE SENSORES',                           1, 'acondicionamiento'),
+    (5,  'FALLA CORTE TAPABOCAS',                       1, 'acondicionamiento'),
+    (6,  'FALLA SOLDADURA DE CAUCHO',                   1, 'acondicionamiento'),
+    (7,  'FALLA SOLDADURA MAQUINA MANUAL',              1, 'acondicionamiento'),
+    (8,  'FALLA DE SELLADORAS',                         1, 'acondicionamiento'),
+    (9,  'FALLA DE MAQUINA CODIFICADORA',               1, 'acondicionamiento'),
+    (10, 'ESPERA DE MANTENIMIENTO',                     1, 'acondicionamiento'),
+    (11, 'TEC. MTTO. OCUPADO',                          1, 'acondicionamiento'),
+    (12, 'MANTENIMIENTO CORRECTIVO',                    1, 'acondicionamiento'),
+    (13, 'FALLA AIRE COMPRIMIDO',                       1, 'acondicionamiento'),
+    (14, 'PICO DE ENERGIA',                             1, 'acondicionamiento'),
+    (15, 'FALTA DE OPERARIO',                           1, 'acondicionamiento'),
+    (16, 'CORTE ENERGIA EXTERIOR',                      1, 'acondicionamiento'),
+    (17, 'FALTA DE MATERIAL EXTERNO',                   1, 'acondicionamiento'),
+    (18, 'TERMINA ORDEN',                               1, 'acondicionamiento'),
+    (19, 'LIMPIEZA Y DESINFECCION',                     1, 'acondicionamiento'),
+    (20, 'DESAYUNO, ALMUERZO, CENA',                    1, 'acondicionamiento'),
+    (21, 'MANTENIMIENTO PREVENTIVO',                    1, 'acondicionamiento'),
+    (22, 'REUNION',                                     1, 'acondicionamiento'),
+    (23, 'PAUSAS ACTIVAS',                              1, 'acondicionamiento'),
+    (24, 'MANTENIMIENTO PLANTA ELECTRICA',              1, 'acondicionamiento'),
+    (25, 'RELEVOS',                                     1, 'acondicionamiento'),
+    (26, 'LIMPIEZA DE MAQUINA CODIFICADORA',            1, 'acondicionamiento'),
+    (27, 'CAUCHO EN MAL ESTADO',                        1, 'acondicionamiento'),
+    (28, 'FALLA ALAMBRE',                               1, 'acondicionamiento'),
+    (29, 'CAMBIO DE ROLLO',                             1, 'acondicionamiento'),
+    (30, 'FALTA DE MATERIAL INTERNO',                   1, 'acondicionamiento'),
+    (31, 'ESTUCHE PEGADO',                              1, 'acondicionamiento'),
+    (32, 'MASCARA SIN VALVULA',                         1, 'acondicionamiento'),
+    (33, 'TUBO SIN TAPA INFERIOR',                      1, 'acondicionamiento'),
+    (34, 'EXCESO DE REBABA EN TUBO',                    1, 'acondicionamiento'),
+    (35, 'BOLSA PEGADA',                                1, 'acondicionamiento'),
+    (36, 'SELECCION DE EMPAQUE',                        1, 'acondicionamiento'),
+    (37, 'CONTEO DE PRODUCTO',                          1, 'acondicionamiento'),
+    (38, 'ROLLO MAL BOBINADO',                          1, 'acondicionamiento'),
+    (39, 'MAQUINA INESTABLE',                           1, 'acondicionamiento'),
+    (40, 'PARO MAQUINA C. CALIDAD',                     1, 'acondicionamiento'),
+    (41, 'AJUSTE PROCESO',                              1, 'acondicionamiento'),
+    (42, 'OPERARIO EN OTRA ACTIVIDAD',                  1, 'acondicionamiento'),
+    # ── Programadas ──────────────────────────────────────────────
+    (43, 'ORIFICIOS A EMPAQUE',                         0, 'acondicionamiento'),
+    (44, 'INFORMACION PARA CODIFICAR EN EL DESPEJE',    0, 'acondicionamiento'),
+    (45, 'CODIFICAR EMPAQUE',                           0, 'acondicionamiento'),
+    (46, 'RECIBIR MATERIAL DE BODEGA',                  0, 'acondicionamiento'),
+    (47, 'BORRAR EMPAQUE',                              0, 'acondicionamiento'),
+    (48, 'INICIO DE ORDEN',                             0, 'acondicionamiento'),
+    (49, 'PEGAR STICKER',                               0, 'acondicionamiento'),
+    (50, 'ALISTAMIENTO DE PRODUCTO',                    0, 'acondicionamiento'),
+]
+
 TIPOS_DESPERDICIO = [
+    # ── Genéricos (inyección / soplado) ──────────────────────────
     (1,  'REBABAS'),
     (2,  'LLENADO INCOMPLETO'),
     (3,  'PELLETS SIN FUNDIR'),
@@ -163,6 +224,24 @@ TIPOS_DESPERDICIO = [
     (22, 'PARTIDOS DE MAQUINA'),
     (23, 'FUGA DE AGUA'),
     (24, 'FRASCO OVALADO'),
+    # ── Acondicionamiento 2025 ────────────────────────────────────
+    (25, 'DEFECTOS'),
+    (26, 'LLENADO INCOMPLETO ACOND'),
+    (27, 'QUEMADAS'),
+    (28, 'BURBUJAS ACOND'),
+    (29, 'GRIETAS ACOND'),
+    (30, 'RECHUPES ACOND'),
+    (31, 'CONTAMINACION ACOND'),
+    (32, 'PIEZA CON GRASA ACOND'),
+    (33, 'OXIDO ACOND'),
+    (34, 'PIEZAS DEFORMES'),
+    (35, 'FALTA DE CAUCHO'),
+    (36, 'CAUCHO SUCIO'),
+    (37, 'MAL PEGUE'),
+    (38, 'EMPAQUE DEFECTUOSO'),
+    (39, 'DISPOSITIVO DEFECTUOSO'),
+    (40, 'VENCIDOS'),
+    (41, 'DAÑO DE EMPAQUE AL CODIFICAR'),
 ]
 
 def poblar():
@@ -192,13 +271,22 @@ def poblar():
     cur.execute("ALTER TABLE causas_parada_nueva RENAME TO causas_parada")
     print("✅ Tabla causas_parada recreada sin UNIQUE constraint")
 
-    # Insertar todas las causas
+    # Insertar todas las causas (4 tipos de máquina)
+    todas = (
+        CAUSAS_INYECCION
+        + CAUSAS_SOPLADO
+        + CAUSAS_LINEA
+        + CAUSAS_ACONDICIONAMIENTO
+    )
     cur.executemany(
         "INSERT INTO causas_parada (codigo, descripcion, programada, tipo_maquina, activa) VALUES (?,?,?,?,1)",
-        CAUSAS_INYECCION + CAUSAS_SOPLADO + CAUSAS_LINEA
+        todas
     )
-    total = len(CAUSAS_INYECCION) + len(CAUSAS_SOPLADO) + len(CAUSAS_LINEA)
-    print(f"✅ {total} causas insertadas ({len(CAUSAS_INYECCION)} inyección, {len(CAUSAS_SOPLADO)} soplado, {len(CAUSAS_LINEA)} línea)")
+    print(f"✅ {len(todas)} causas insertadas:")
+    print(f"   · {len(CAUSAS_INYECCION)} inyección")
+    print(f"   · {len(CAUSAS_SOPLADO)} soplado")
+    print(f"   · {len(CAUSAS_LINEA)} línea")
+    print(f"   · {len(CAUSAS_ACONDICIONAMIENTO)} acondicionamiento (42 no prog + 8 prog)")
 
     # Limpiar y repoblar desperdicios
     cur.execute("DELETE FROM tipos_desperdicio")
@@ -206,7 +294,9 @@ def poblar():
         "INSERT INTO tipos_desperdicio (codigo, descripcion, activa) VALUES (?,?,1)",
         TIPOS_DESPERDICIO
     )
-    print(f"✅ {len(TIPOS_DESPERDICIO)} tipos de desperdicio insertados")
+    print(f"\n✅ {len(TIPOS_DESPERDICIO)} tipos de desperdicio insertados:")
+    print(f"   · 24 genéricos (inyección/soplado)")
+    print(f"   · 17 de acondicionamiento 2025")
 
     conn.commit()
     conn.close()
