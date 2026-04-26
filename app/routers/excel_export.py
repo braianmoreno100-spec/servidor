@@ -14,7 +14,7 @@ from openpyxl.utils import get_column_letter
 from openpyxl.chart import BarChart, LineChart, Reference
 
 from ..database import get_db
-from ..models import Turno, RegistroProduccion, Parada, Desperdicio, Relevo, Orden
+from ..models import Turno, RegistroProduccion, Parada, Desperdicio, Relevo, Orden, Producto
 
 router = APIRouter(tags=["reportes"])
 
@@ -36,6 +36,24 @@ COLOR_AMARILLO_WARN = "FFF2CC"
 COLOR_GRIS_ROW      = "F2F2F2"
 COLOR_LEAN_ACCENT   = "375623"
 COLOR_TITULO_SHEET  = "16365C"
+
+# ─────────────────────────────────────────────
+# kW FIJOS POR MÁQUINA
+# ─────────────────────────────────────────────
+KW_MAQUINA = {
+    ("inyeccion", "1"): 18.5,
+    ("inyeccion", "2"): 15.0,
+    ("inyeccion", "3"): 11.0,
+    ("inyeccion", "4"): 22.0,
+    ("inyeccion", "5"): 13.0,
+    ("inyeccion", "6"): 11.0,
+    ("inyeccion", "7"): 13.0,
+    ("soplado",   "1"): 45.1,
+    ("linea",     "1"):  5.0,  # pendiente dato real
+    ("linea",     "2"):  5.0,  # pendiente dato real
+    ("acondicionamiento", "1"): 3.0,  # pendiente dato real
+    ("acondicionamiento", "2"): 3.0,  # pendiente dato real
+}
 
 # ─────────────────────────────────────────────
 # HELPERS DE ESTILO
@@ -144,7 +162,7 @@ def calcular_metricas_lean(turno: Turno, orden: Orden) -> dict:
     }
 
 # ─────────────────────────────────────────────
-# HOJAS EXCEL (sin cambios respecto al original)
+# HOJAS EXCEL
 # ─────────────────────────────────────────────
 def _hoja_resumen_lean(wb, turnos, ordenes_map, titulo):
     ws = wb.create_sheet("Resumen Lean")
@@ -397,15 +415,10 @@ def _response_excel(output, filename):
 # ─────────────────────────────────────────────
 
 def _calcular_oee_turno(turno: Turno, orden: Orden) -> dict:
-    """
-    Calcula OEE simplificado para un turno.
-    Devuelve dict con oee, disponibilidad, rendimiento, calidad.
-    """
     contador  = sum(r.cantidad for r in turno.registros_produccion)
     paradas   = turno.paradas
     min_np    = sum(p.minutos for p in paradas if not p.programada)
 
-    # Tiempo real del turno
     try:
         def parse_hora(h: str) -> float:
             if not h:
@@ -484,7 +497,6 @@ def reporte_por_fechas(
     fecha_fin:    str,
     db: Session = Depends(get_db)
 ):
-    """Descarga Excel con todos los turnos en el rango de fechas."""
     turnos = db.query(Turno).filter(
         Turno.fecha >= fecha_inicio,
         Turno.fecha <= fecha_fin
@@ -498,7 +510,7 @@ def reporte_por_fechas(
 
 
 # ─────────────────────────────────────────────
-# NUEVO: ENDPOINT JSON PARA EL DASHBOARD OEE
+# ENDPOINT JSON OEE PARA DASHBOARD
 # ─────────────────────────────────────────────
 
 @router.get("/oee/fechas")
@@ -507,11 +519,6 @@ def oee_por_fechas_json(
     fecha_fin:    str,
     db: Session = Depends(get_db)
 ):
-    """
-    Devuelve JSON con OEE por turno en el rango de fechas.
-    Usado por el dashboard (oee/page.tsx) para las cards y gráficos.
-    Incluye tipo_maquina y numero_maquina para agrupar por tipo.
-    """
     turnos = db.query(Turno).filter(
         Turno.fecha >= fecha_inicio,
         Turno.fecha <= fecha_fin
@@ -529,9 +536,7 @@ def oee_por_fechas_json(
         orden = ordenes_map.get(turno.orden_id)
         if not orden:
             continue
-
         kpis = _calcular_oee_turno(turno, orden)
-
         resultado.append({
             "turno_id":       turno.id,
             "orden_id":       turno.orden_id,
@@ -549,7 +554,7 @@ def oee_por_fechas_json(
 
 
 # ─────────────────────────────────────────────
-# ENDPOINT EMPLEADOS MES (sin cambios)
+# ENDPOINT EMPLEADOS MES
 # ─────────────────────────────────────────────
 
 @router.get("/empleados-mes")
@@ -569,10 +574,8 @@ def reporte_empleados_mes(mes: int, anio: int, db: Session = Depends(get_db)):
         orden = db.query(Orden).filter(Orden.id == t.orden_id).first()
         if not orden:
             continue
-
-        kpis = _calcular_oee_turno(t, orden)
-        registros = t.registros_produccion
-        contador  = sum(r.cantidad for r in registros)
+        kpis     = _calcular_oee_turno(t, orden)
+        contador = sum(r.cantidad for r in t.registros_produccion)
 
         if ced not in empleados:
             empleados[ced] = {
@@ -602,3 +605,279 @@ def reporte_empleados_mes(mes: int, anio: int, db: Session = Depends(get_db)):
         })
 
     return sorted(resultado, key=lambda x: x["oee_promedio"], reverse=True)
+
+
+# ─────────────────────────────────────────────
+# ENDPOINT CONSUMO
+# ─────────────────────────────────────────────
+
+@router.get("/consumo/datos")
+def get_datos_consumo(
+    fecha_inicio: str,
+    fecha_fin: str,
+    db: Session = Depends(get_db)
+):
+    """Retorna datos de consumo por máquina en un rango de fechas."""
+    from datetime import datetime as dt
+
+    try:
+        fi = dt.strptime(fecha_inicio, "%Y-%m-%d")
+        ff = dt.strptime(fecha_fin, "%Y-%m-%d")
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Formato inválido. Usar YYYY-MM-DD")
+
+    turnos = (
+        db.query(Turno)
+        .join(Orden, Turno.orden_id == Orden.id)
+        .filter(Turno.fecha >= fi, Turno.fecha <= ff)
+        .all()
+    )
+
+    resultado = {}
+
+    for turno in turnos:
+        orden = db.query(Orden).filter(Orden.id == turno.orden_id).first()
+        if not orden:
+            continue
+
+        tipo = orden.tipo_maquina
+        num  = str(orden.numero_maquina)
+        key  = f"{tipo}_{num}"
+
+        if key not in resultado:
+            resultado[key] = {
+                "tipo_maquina":       tipo,
+                "numero_maquina":     num,
+                "horas_trabajadas":   0.0,
+                "kwh_consumidos":     0.0,
+                "kg_procesados":      0.0,
+                "unidades_producidas": 0,
+            }
+
+        # Horas trabajadas
+        horas = 0.0
+        if turno.hora_inicio and turno.hora_fin:
+            try:
+                hi   = dt.strptime(turno.hora_inicio[:5], "%H:%M")
+                hf   = dt.strptime(turno.hora_fin[:5],    "%H:%M")
+                diff = (hf - hi).seconds / 3600
+                horas = diff if diff > 0 else 0.0
+            except Exception:
+                horas = 0.0
+
+        resultado[key]["horas_trabajadas"] = round(
+            resultado[key]["horas_trabajadas"] + horas, 2
+        )
+
+        # kWh
+        kw = KW_MAQUINA.get((tipo, num), 0.0)
+        resultado[key]["kwh_consumidos"] = round(
+            resultado[key]["kwh_consumidos"] + kw * horas, 2
+        )
+
+        # Unidades producidas
+        registros      = db.query(RegistroProduccion).filter(
+            RegistroProduccion.turno_id == turno.id
+        ).all()
+        total_unidades = sum(r.cantidad for r in registros)
+        resultado[key]["unidades_producidas"] += total_unidades
+
+        # kg procesados (solo si el producto tiene peso_pieza)
+        producto = db.query(Producto).filter(
+            Producto.codigo == orden.codigo_producto
+        ).first()
+        if producto and producto.peso_pieza:
+            cavidades = orden.cavidades or 1
+            kg = (total_unidades * cavidades * producto.peso_pieza) / 1000
+            resultado[key]["kg_procesados"] = round(
+                resultado[key]["kg_procesados"] + kg, 2
+            )
+
+    return list(resultado.values())
+
+# ─────────────────────────────────────────────
+# ENDPOINT MANTENIMIENTO
+# ─────────────────────────────────────────────
+
+@router.get("/mantenimiento/datos")
+def get_datos_mantenimiento(
+    fecha_inicio: str,
+    fecha_fin:    str,
+    db: Session = Depends(get_db)
+):
+    """
+    Retorna MTTR, MTBF, disponibilidad y top causas por máquina
+    en un rango de fechas. También incluye tendencia mensual.
+    """
+    from datetime import datetime as dt
+
+    try:
+        fi = dt.strptime(fecha_inicio, "%Y-%m-%d")
+        ff = dt.strptime(fecha_fin,    "%Y-%m-%d")
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Formato inválido. Usar YYYY-MM-DD")
+
+    turnos = (
+        db.query(Turno)
+        .join(Orden, Turno.orden_id == Orden.id)
+        .filter(Turno.fecha >= fecha_inicio, Turno.fecha <= fecha_fin)
+        .all()
+    )
+
+    # ── Acumular datos por máquina ────────────────────────────────────────────
+    maquinas: dict = {}
+
+    for turno in turnos:
+        orden = db.query(Orden).filter(Orden.id == turno.orden_id).first()
+        if not orden:
+            continue
+
+        tipo = orden.tipo_maquina
+        num  = str(orden.numero_maquina)
+
+        # Determinar tipo_key y label
+        if tipo == "linea" and num == "1":
+            tipo_key = "linea_copro"
+            label    = "L. Copro"
+        elif tipo == "linea" and num == "2":
+            tipo_key = "linea_orina"
+            label    = "L. Orina"
+        elif tipo == "inyeccion":
+            tipo_key = f"inyeccion_{num}"
+            label    = f"Iny. {num}"
+        elif tipo == "acondicionamiento":
+            tipo_key = f"acondicionamiento_{num}"
+            label    = f"Acond. {num}"
+        else:
+            tipo_key = f"{tipo}_{num}"
+            label    = f"{tipo.capitalize()} {num}"
+
+        if tipo_key not in maquinas:
+            maquinas[tipo_key] = {
+                "tipo_key":       tipo_key,
+                "tipo_maquina":   tipo,
+                "numero_maquina": num,
+                "label":          label,
+                "color":          _color_tipo(tipo),
+                "min_np_total":   0,
+                "n_paradas":      0,
+                "tiempo_h_total": 0.0,
+                "causas":         {},
+                "por_mes":        {},  # mes -> {min_np, n_paradas, tiempo_h}
+            }
+
+        maq = maquinas[tipo_key]
+
+        # Calcular horas del turno
+        horas = _horas_turno(turno)
+        maq["tiempo_h_total"] += horas
+
+        # Paradas no programadas
+        paradas_np = [p for p in turno.paradas if not p.programada]
+        min_np     = sum(p.minutos for p in paradas_np)
+        maq["min_np_total"] += min_np
+        maq["n_paradas"]    += len(paradas_np)
+
+        # Causas acumuladas
+        for p in paradas_np:
+            desc = p.descripcion
+            if desc not in maq["causas"]:
+                maq["causas"][desc] = {"minutos": 0, "ocurrencias": 0}
+            maq["causas"][desc]["minutos"]     += p.minutos
+            maq["causas"][desc]["ocurrencias"] += 1
+
+        # Tendencia mensual
+        try:
+            mes_num = int(turno.fecha[5:7])
+        except:
+            mes_num = fi.month
+
+        if mes_num not in maq["por_mes"]:
+            maq["por_mes"][mes_num] = {"min_np": 0, "n": 0, "h": 0.0}
+        maq["por_mes"][mes_num]["min_np"] += min_np
+        maq["por_mes"][mes_num]["n"]      += len(paradas_np)
+        maq["por_mes"][mes_num]["h"]      += horas
+
+    # ── Calcular métricas finales ─────────────────────────────────────────────
+    resultado = []
+    for maq in maquinas.values():
+        n      = maq["n_paradas"]
+        h      = maq["tiempo_h_total"]
+        min_np = maq["min_np_total"]
+        tiempo_op_min = h * 60 - min_np
+
+        mttr = round(min_np / n, 1)             if n > 0 else 0
+        mtbf = round(tiempo_op_min / n, 1)      if n > 0 else round(h * 60, 1)
+        disp = round(tiempo_op_min / (h*60)*100, 1) if h > 0 else 100.0
+
+        # Top 5 causas
+        top_causas = sorted(
+            [{"descripcion": k, **v} for k, v in maq["causas"].items()],
+            key=lambda x: x["minutos"], reverse=True
+        )[:5]
+
+        # Tendencia mensual
+        tendencia = []
+        for mes_num, d in sorted(maq["por_mes"].items()):
+            n_m   = d["n"]
+            h_m   = d["h"]
+            mn_m  = d["min_np"]
+            top_m = h_m * 60 - mn_m
+            tendencia.append({
+                "mes":  mes_num,
+                "mttr": round(mn_m / n_m, 1)         if n_m > 0 else 0,
+                "mtbf": round(top_m / n_m, 1)         if n_m > 0 else round(h_m*60, 1),
+                "disp": round(top_m / (h_m*60)*100, 1) if h_m > 0 else 100.0,
+            })
+
+        resultado.append({
+            "tipo_key":       maq["tipo_key"],
+            "tipo_maquina":   maq["tipo_maquina"],
+            "numero_maquina": maq["numero_maquina"],
+            "label":          maq["label"],
+            "color":          maq["color"],
+            "mttr":           mttr,
+            "mtbf":           mtbf,
+            "disponibilidad": disp,
+            "n_paradas":      n,
+            "min_paradas":    min_np,
+            "top_causas":     top_causas,
+            "tendencia":      tendencia,
+        })
+
+    # Ordenar por disponibilidad ascendente (peores primero)
+    resultado.sort(key=lambda x: x["disponibilidad"])
+    return resultado
+
+
+def _color_tipo(tipo: str) -> str:
+    return {
+        "inyeccion":         "#378add",
+        "soplado":           "#639922",
+        "linea":             "#ef9f27",
+        "acondicionamiento": "#1D9E75",
+    }.get(tipo, "#888888")
+
+
+def _horas_turno(turno) -> float:
+    from datetime import datetime as dt
+    try:
+        def ph(h):
+            if not h: return 0.0
+            import re
+            clean = h.replace(".", "").replace("  ", " ").strip().lower()
+            m = re.match(r"(\d{1,2}):(\d{2})(?:\s*(am|pm))?", clean)
+            if not m: return 0.0
+            hh, mm, ampm = int(m.group(1)), int(m.group(2)), m.group(3)
+            if ampm == "pm" and hh != 12: hh += 12
+            if ampm == "am" and hh == 12: hh = 0
+            return hh + mm / 60
+        inicio = ph(turno.hora_inicio)
+        fin    = ph(turno.hora_fin) if turno.hora_fin else (
+            dt.now().hour + dt.now().minute / 60
+        )
+        diff = fin - inicio
+        if diff < 0: diff += 24
+        return min(diff, 12)
+    except:
+        return 0.0    

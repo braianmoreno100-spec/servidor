@@ -19,13 +19,15 @@ class Empleado(Base):
 
 class Producto(Base):
     __tablename__ = "productos"
+
     id = Column(Integer, primary_key=True, index=True)
     codigo = Column(String, unique=True, index=True)
     descripcion = Column(String)
-    material = Column(String)
     ciclos = Column(Float)
     cavidades = Column(Integer)
+    material = Column(String, nullable=True)
     activo = Column(Boolean, default=True)
+    peso_pieza = Column(Float, nullable=True)  # ← AGREGAR esta línea
 
 class Orden(Base):
     __tablename__ = "ordenes"

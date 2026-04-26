@@ -4,6 +4,7 @@ import socketio
 from .database import engine, Base
 from .socket_manager import sio, get_sio
 from .routers import auth, ordenes, produccion, excel_export, catalogos
+from .routers import auth, ordenes, produccion, excel_export, catalogos, reporte_pptx
 
 Base.metadata.create_all(bind=engine)
 
@@ -22,6 +23,7 @@ app.include_router(ordenes.router, prefix="/ordenes", tags=["ordenes"])
 app.include_router(produccion.router, prefix="/produccion", tags=["produccion"])
 app.include_router(excel_export.router, prefix="/reportes", tags=["reportes"])
 app.include_router(catalogos.router, prefix="/catalogos", tags=["catalogos"])
+app.include_router(reporte_pptx.router, prefix="/reportes", tags=["reporte-pptx"])
 
 socket_app = socketio.ASGIApp(sio, app)
 
