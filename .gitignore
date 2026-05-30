@@ -35,3 +35,5 @@ actualizar_*.py
 clasificar_restantes.py
 run.py
 static/
+
+servicios_programados.py
