@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, ForeignKey, BigInteger
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from ..database import Base
@@ -19,7 +19,6 @@ class Empleado(Base):
 
 class Producto(Base):
     __tablename__ = "productos"
-
     id = Column(Integer, primary_key=True, index=True)
     codigo = Column(String, unique=True, index=True)
     descripcion = Column(String)
@@ -27,7 +26,8 @@ class Producto(Base):
     cavidades = Column(Integer)
     material = Column(String, nullable=True)
     activo = Column(Boolean, default=True)
-    peso_pieza = Column(Float, nullable=True)  # ← AGREGAR esta línea
+    peso_pieza = Column(Float, nullable=True)
+    tipo_maquina = Column(String, nullable=True)
 
 class Orden(Base):
     __tablename__ = "ordenes"
@@ -82,6 +82,11 @@ class Parada(Base):
     descripcion = Column(String)
     minutos = Column(Integer)
     programada = Column(Boolean)
+    # ── NUEVAS columnas para temporizador en vivo ──────────────────────────
+    activa = Column(Boolean, default=False, nullable=False, server_default='false')
+    timestamp_inicio = Column(BigInteger, nullable=True)   # epoch ms — cuando el operario toca "Iniciar"
+    timestamp_fin    = Column(BigInteger, nullable=True)   # epoch ms — cuando toca "Finalizar"
+    # ───────────────────────────────────────────────────────────────────────
     turno = relationship("Turno", back_populates="paradas")
 
 class Desperdicio(Base):
@@ -103,7 +108,7 @@ class Relevo(Base):
     hora_fin = Column(String, nullable=True)
     turno = relationship("Turno", back_populates="relevos")
 
-# ── CATÁLOGOS ─────────────────────────────────────────────────────────────────
+# ── CATÁLOGOS ──────────────────────────────────────────────────────────────────
 
 class CausaParada(Base):
     __tablename__ = "causas_parada"
